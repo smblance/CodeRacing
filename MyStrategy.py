@@ -4,9 +4,9 @@ from model.Move import Move
 from model.World import World
 from math import sin, cos, sqrt, pi
 
-from convenience import adj_tile, distance
+from convenience import adj_tile, distance, abs_distance, ttype, sign
+from path_to_waypoint import path_to_waypoint
 from map_to_file import map_to_file
-from map_path import map_path
 
 left, right, top, bot = (-1,0), (1,0), (0,-1), (0,1)
 type_exits = {
@@ -25,11 +25,50 @@ type_exits = {
     12 : [left, right, top, bot]
 }
 
-def get_target(me, world, cur_tile, next_tile, tile_size):
-    if cur_tile[0] == next_tile[0]:
-        return ( (cur_tile[0] + 1/2.)*tile_size, ((cur_tile[1] + next_tile[1])/2 + 1/2.)*tile_size)
-    elif cur_tile[1] == next_tile[1]:
-        return ( ((cur_tile[0] + next_tile[0])/2 + 1/2.)*tile_size, ((cur_tile[1])+ 1/2.)*tile_size)
+def get_target(me, world, game, path):
+    # if cur_tile[0] == next_tile[0]:
+    #     return ( (cur_tile[0] + 1/2.)*tile_size, ((cur_tile[1] + next_tile[1])/2 + 1/2.)*tile_size)
+    # elif cur_tile[1] == next_tile[1]:
+    #     return ( ((cur_tile[0] + next_tile[0])/2 + 1/2.)*tile_size, ((cur_tile[1])+ 1/2.)*tile_size)
+    
+    tile1, tile2, tile3 = path[0], path[1], path[2]
+    if tile3[0] == tile1[0]: #2 tiles straight top or bot
+        return  me.x, me.y + sign(tile3[1] - tile1[1]) * game.track_tile_size
+    elif tile3[1] == tile1[1]: #2 tiles straight left or right
+        return  me.x + sign(tile3[0] - tile1[0]) * game.track_tile_size, me.y
+    
+    elif tile2[0] > tile1[0]: #first right than turn
+        #if me.x < tile1[0]*(game.track_tile_size + 1/2): #if didnt pass half of tile1
+        #    return me.x + game.track_tile_size, me.y
+        if tile3[1] < tile2[1]: #time to turn -> move right than top
+            return tile2[0]*game.track_tile_size + (me.y - tile1[1] * game.track_tile_size) , tile2[1] *game.track_tile_size
+        elif tile3[1] > tile2[1]: #time to turn -> move right than bot
+            return tile2[0]*game.track_tile_size + (me.y - tile1[1] * game.track_tile_size) , (tile2[1]+1)*game.track_tile_size
+    
+    elif tile2[0] < tile1[0]: #first left than turn
+        #if me.x > tile1[0]*(game.track_tile_size + 1/2): #if didnt pass half of tile1
+        #    return me.x - game.track_tile_size, me.y
+        if tile3[1] < tile2[1]: #time to turn -> move left than top
+            return (tile2[0]+1)*game.track_tile_size - (me.y - tile[1] * game.track_tile_size) , tile2[1]*game.track_tile_size
+        elif tile3[1] > tile2[1]: #time to turn -> move left than bot
+            return (tile2[0]+1)*game.track_tile_size - (me.y - tile[1] * game.track_tile_size) , (tile2[1]+1)*game.track_tile_size
+            
+    elif tile2[1] < tile1[1]: #first top than turn
+        #if me.y > tile1[1]*(game.track_tile_size + 1/2): #if didnt pass half of tile1
+        #    return me.x, me.y - game.track_tile_size
+        if tile3[0] < tile2[0]: #time to turn -> move top than left
+            return tile2[0]*game.track_tile_size, (tile2[1] + 1)*game.track_tile_size - (me.x - tile1[0] * game.track_tile_size)
+        elif tile3[0] > tile2[0]: #time to turn -> move top than right
+            return (tile2[0]+1)*game.track_tile_size, (tile2[1] + 1)*game.track_tile_size - (me.x - tile1[0] * game.track_tile_size)
+    
+    elif tile2[1] > tile1[1]: #first bot than turn
+        #if me.y < tile1[1]*(game.track_tile_size + 1/2): #if didnt pass half of tile1
+        #    return me.x, me.y + game.track_tile_size
+        if tile3[0] < tile2[0]: #time to turn -> move bot than left
+            return tile2[0]*game.track_tile_size, tile2[1]*game.track_tile_size + (me.x - tile1[0] * game.track_tile_size)
+        elif tile3[0] > tile2[0]: #time to turn -> move bot than right
+            return (tile2[0]+1)*game.track_tile_size, tile2[1]*game.track_tile_size + (me.x - tile1[0] * game.track_tile_size)
+    
 
 
 class MyStrategy:
@@ -47,26 +86,27 @@ class MyStrategy:
         @type game: Game
         @type move: Move
         """
-        if self.path == None:
-            self.path = map_path(world, me)
         
         #calculate variables
         tile_x = int(me.x/game.track_tile_size)  #round down
         tile_y = int(me.y/game.track_tile_size)  #round down
         cur_tile = (tile_x, tile_y)
-        if self.path.index(cur_tile) != len(self.path):
-            next_tile = self.path[self.path.index(cur_tile) + 1]
-        else:
-            next_tile == self.path[0]
-
+        #map_to_file(world, cur_tile)
+        waypoint = (me.next_waypoint_x,me.next_waypoint_y)
+        path = path_to_waypoint(cur_tile, waypoint, world.tiles_x_y)
+        if len(path) == 2:
+            second_wp = tuple(world.waypoints[(me.next_waypoint_index + 1) % len(world.waypoints)])
+            #if abs_distance(waypoint,second_wp) == 1:
+            #    second_wp = world.waypoints[(me.next_waypoint_index + 2) % len(world.waypoints)]
+            path.append(path_to_waypoint(waypoint, second_wp, world.tiles_x_y)[1])
         # move
         move.engine_power = 0.5
-        target = get_target(me, world, cur_tile, next_tile, game.track_tile_size)
+        target = get_target(me, world, game, path)
         angle_to_target = me.get_angle_to(target[0], target[1])
         move.wheel_turn = angle_to_target/pi
 
         if world.tick % 30 == 0:
-            print (me.x,me.y), angle_to_target, target, move.wheel_turn
+            print 'me, target, wheelturn: ', (me.x,me.y), target, angle_to_target/pi * 2, path
 
         move.throw_projectile = False
         move.spill_oil = False

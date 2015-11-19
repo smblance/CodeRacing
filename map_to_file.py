@@ -1,6 +1,6 @@
 import sys
 
-def map_to_file(world, file = 'map.txt'):
+def map_to_file(world, start, file = 'map.txt'):
     reload(sys)
     sys.setdefaultencoding('utf-8')
     
@@ -23,7 +23,7 @@ def map_to_file(world, file = 'map.txt'):
     with open(file, 'rb+') as f:
         f.write('Width: %s tiles\n'%str(world.width))
         f.write('Height: %s tiles\n\n'%str(world.height))
-        f.write('Map:\n')
+        f.write('Map: S=start\n\n')
         col_names = '  '
         for col in range(world.width):
             col_names += str(col)
@@ -35,6 +35,12 @@ def map_to_file(world, file = 'map.txt'):
             if row_num < 10:
                 f.write(' ')
             for x in range(world.width):
-                f.write(tile_type_to_symbols[world.tiles_x_y[x][y]])
+                if (x,y) == start:
+                    f.write('S')
+                else:
+                    f.write(tile_type_to_symbols[world.tiles_x_y[x][y]])
             row_num += 1
             f.write('\n')
+        f.write(str(world.waypoints))
+    exit(0)
+

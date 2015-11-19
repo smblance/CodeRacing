@@ -48,6 +48,7 @@ def shortest_path_between_tiles(tiles_x_y, tile_1, tile_2, entry_direction):
     for exit_direction in type_exits[tiles_x_y[cur_tile[0]][cur_tile[1]]]:
         if exit_direction != (-entry_direction[0], -entry_direction[1]):
             paths.append([cur_tile, adj_tile(cur_tile, exit_direction)])
+            
     while [path[-1] for path in paths] != [tile_2]*len(paths):
         new_paths = []
         for path in paths:
